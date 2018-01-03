@@ -4,7 +4,7 @@ For controlling the remote switch using Home Assistant, enter the following in y
 
 - platform: mqtt
   name: "Displayed name of switch 1"
-  state_topic: "home/lamps/switch1"  
+  state_topic: "home/lamps/switch1"
   command_topic: "home/lamps/switch1/set"
   payload_on: "{ \"addr\":1, \"unit\":1, \"onoff\":0 }"
   payload_off: "{ \"addr\":1, \"unit\":1, \"onoff\":1 }"
