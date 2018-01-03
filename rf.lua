@@ -2,7 +2,7 @@
 
 local module = {}
 
--- ON/OFF states
+-- ON/OFF states (inverted)
 module.ON = 0
 module.OFF = 1
 
