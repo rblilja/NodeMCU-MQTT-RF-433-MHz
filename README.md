@@ -1,1 +1,1 @@
-TODO
+MQTT client controlling remote 433 MHz power switches using NodeMCU for ESP8266. Tested with Telldus and Nexa devices using the self-learning protocol. The RF module was written as the built-in library of NodeMCU doesn't work with the aforementioned devices. Any 433.92 MHz ASK transmitter module shall work.
