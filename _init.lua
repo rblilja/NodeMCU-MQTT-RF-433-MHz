@@ -6,6 +6,7 @@ local sntpd = require("sntpd")
 local mqttd = require("mqttd")
 local rf = require("rf")
 
+-- MQTT message handler
 function handler(client, topic, payload)
 
 	print("\n\tMQTT Topic: "..topic.." Payload: "..payload)
@@ -29,6 +30,7 @@ function handler(client, topic, payload)
 	mqttd.publish(subscription["ack"], payload)
 end
 
+-- AM2320 sampling
 function sample()
 
 	if wireless.is_ready() == true and mqttd.is_ready() == true then
