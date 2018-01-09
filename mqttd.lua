@@ -13,8 +13,6 @@ local port = nil
 local timeout = nil
 local subscriptions = nil
 
-local publish_ack = nil
-
 local state = module.MQTT_DISCONNECTED
 
 function module.is_ready()
@@ -22,24 +20,16 @@ function module.is_ready()
 	return state == module.MQTT_CONNECTED
 end
 
-function module.start(mqtt_cfg, handler)
+function module.start(__config, __subscriptions, handler)
 
-	host = mqtt_cfg.host
-	port = mqtt_cfg.port
-	timeout = mqtt_cfg.timeout
+	host = __config.host
+	port = __config.port
+	timeout = __config.timeout
 
-	subscriptions = {}
-
-	-- build subscriptions table
-	for key,value in pairs(mqtt_cfg.subscriptions) do
-
-		subscriptions[key] = value["qos"]
-	end
-
-	publish_ack = 0
+	subscriptions = __subscriptions
 
 	-- init mqtt client with logins and keepalive timer
-	m = mqtt.Client(mqtt_cfg.client_id, mqtt_cfg.keepalive, mqtt_cfg.user, mqtt_cfg.pwd)
+	m = mqtt.Client(__config.client_id, __config.keepalive, __config.user, __config.pwd)
 
 	module.connect()
 
@@ -82,17 +72,12 @@ function module.disconnect()
 	return state
 end
 
-function module.publish(topic, data)
+function module.publish(topic, data, handler)
 
 	if m == nil then return end
 
 	-- publish a message, QoS = 0 and retain = 1 i.e. MQTT server will push current data for new subscribers
-	m:publish(topic, data, 0, 1,
-	function(client)
-		-- increment ACK counter
-		publish_ack = publish_ack + 1
-		print("\n\tMQTT - PUBACK")
-	end)
+	m:publish(topic, data, 0, 1, handler)
 end
 
 function module.subscribe(topic)

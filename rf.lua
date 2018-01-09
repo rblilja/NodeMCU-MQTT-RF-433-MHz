@@ -13,7 +13,7 @@ module.SWITCH_3 = 3
 module.SWITCH_4 = 4
 module.SWITCH_GROUP = 0
 
--- timing definitions in microseconds (Telldus self-learning protocol)
+-- timing definitions in microseconds (Telldus and Nexa self-learning protocol)
 local PULSE_HIGH_T = 250	-- 1T
 local ONE_LOW_T = 250  		-- 1T
 local ZERO_LOW_T = 1250  	-- 5T
@@ -25,6 +25,8 @@ local SYNC = {PULSE_HIGH_T, SYNC_LOW_T}
 local PAUSE = {PULSE_HIGH_T, PAUSE_LOW_T}
 local ZERO = {PULSE_HIGH_T, ZERO_LOW_T, PULSE_HIGH_T, ONE_LOW_T}
 local ONE = {PULSE_HIGH_T, ONE_LOW_T, PULSE_HIGH_T, ZERO_LOW_T}
+
+local tx_addr = nil
 
 local unit_addr = {}
 
@@ -43,6 +45,8 @@ local queue = nil
 local tx_is_ready = true
 
 function module.start(rf_cfg)
+
+	tx_addr = rf_cfg.addr
 
 	tx_pin = rf_cfg.tx_pin
 	repeats = rf_cfg.repeats
@@ -85,7 +89,7 @@ function dequeue()
 	if tx_is_ready == false then return end
 
 	-- if queue contains elements awaiting transmission
-	if table.getn(queue) > 0 then send(unpack(table.remove(queue))) end
+	if table.getn(queue) > 0 then send(unpack(table.remove(queue))) else queue = {} end
 end
 
 function merge(a, b)
@@ -101,11 +105,11 @@ function send(addr, unit, onoff)
 	-- assert tx pin is low
 	gpio.write(tx_pin, gpio.LOW)
 
-	bit_buffer = {}
-	raw_buffer = {}
+	local bit_buffer = {}
+	local raw_buffer = {}
 
-	-- channel bits for Telldus (Nexa is inverted i.e. {1, 1})
-	channel = {0, 0}
+	-- channel bits for Telldus (Nexa is inverted i.e. {1, 1} but seems to work with the Telldus definition)
+	local channel = {0, 0}
 
 	if unit == module.SWITCH_GROUP then group = module.ON else group = module.OFF end
 
@@ -119,7 +123,7 @@ function send(addr, unit, onoff)
 	-- C = Channel bits.
 	-- E = Unit bits. Device to be turned ON or OFF.
 	--
-	merge(bit_buffer, addr)
+	merge(bit_buffer, tx_addr[addr])
 	merge(bit_buffer, {group})
 	merge(bit_buffer, {onoff})
 	merge(bit_buffer, channel)
@@ -138,8 +142,6 @@ function send(addr, unit, onoff)
 	--
 	-- stop with PAUSE pulse
 	merge(raw_buffer, PAUSE)
-
-	--for n=1, table.getn(raw_buffer) do print(raw_buffer[n]) end
 
 	-- push raw pulse buffer to the tx
 	gpio.serout(tx_pin, gpio.HIGH, raw_buffer, repeats,
