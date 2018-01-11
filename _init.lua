@@ -1,24 +1,13 @@
 -- file: init.lua
 
 local config = require("config")
+local initd = require("initd")
 local wireless = require("wireless")
 local sntpd = require("sntpd")
 local mqttd = require("mqttd")
 local rf = require("rf")
 
---local onoff = {["ON"]=rf.ON, ["OFF"]=rf.OFF}
-
 local switches = {}
---[[
-switches["home/lamps/switch1/set"] = {["ack"]="home/lamps/switch1", ["qos"]=0, ["addr"]=1, ["unit"]=rf.SWITCH_1}
-switches["home/lamps/switch2/set"] = {["ack"]="home/lamps/switch2", ["qos"]=0, ["addr"]=1, ["unit"]=rf.SWITCH_2}
-switches["home/lamps/switch3/set"] = {["ack"]="home/lamps/switch3", ["qos"]=0, ["addr"]=1, ["unit"]=rf.SWITCH_3}
-switches["home/lamps/switch4/set"] = {["ack"]="home/lamps/switch4", ["qos"]=0, ["addr"]=1, ["unit"]=rf.SWITCH_4}
-switches["home/lamps/switch5/set"] = {["ack"]="home/lamps/switch5", ["qos"]=0, ["addr"]=2, ["unit"]=rf.SWITCH_1}
-switches["home/lamps/switch6/set"] = {["ack"]="home/lamps/switch6", ["qos"]=0, ["addr"]=2, ["unit"]=rf.SWITCH_2}
-switches["home/lamps/switch7/set"] = {["ack"]="home/lamps/switch7", ["qos"]=0, ["addr"]=2, ["unit"]=rf.SWITCH_3}
-switches["home/lamps/switch8/set"] = {["ack"]="home/lamps/switch8", ["qos"]=0, ["addr"]=2, ["unit"]=rf.SWITCH_4}
---]]
 switches["home/lamps/switch1/set"] = {["ack"]="home/lamps/switch1", ["qos"]=0}
 switches["home/lamps/switch2/set"] = {["ack"]="home/lamps/switch2", ["qos"]=0}
 switches["home/lamps/switch3/set"] = {["ack"]="home/lamps/switch3", ["qos"]=0}
@@ -28,16 +17,13 @@ switches["home/lamps/switch6/set"] = {["ack"]="home/lamps/switch6", ["qos"]=0}
 switches["home/lamps/switch7/set"] = {["ack"]="home/lamps/switch7", ["qos"]=0}
 switches["home/lamps/switch8/set"] = {["ack"]="home/lamps/switch8", ["qos"]=0}
 
+subscriptions = {}
+
+-- build subscriptions table
+for key,value in pairs(switches) do subscriptions[key] = value["qos"] end
+
 -- MQTT message handler
-function handler(client, topic, payload)
-
-	--[[
-	local switch = switches[topic]
-
-	mqttd.publish(switch["ack"], payload, nil)
-
-	rf.switch(switch["addr"], switch["unit"], onoff[payload])
-	--]]
+function mqtt_handler(client, topic, payload)
 
 	print("\n\tMQTT Topic: "..topic.." Payload: "..payload.." Heap: "..node.heap())
 
@@ -75,36 +61,9 @@ function sample()
 	end
 end
 
-function wait_on_ip()
-
-	if wireless.is_ready() == true then
-
-		system_tmr:stop()
-		system_tmr:unregister()
-
-		sntpd.start(config.SNTP)
-
-		local subscriptions = {}
-
-		-- build subscriptions table
-		for key,value in pairs(switches) do subscriptions[key] = value["qos"] end
-
-		mqttd.start(config.MQTT, subscriptions, handler)
-
-		-- clean up heap from unused configuration table
-		config.free()
-
-		sample_tmr:start()
-
-	end
-end
-
 function report_boot()
 
 	if wireless.is_ready() == true and mqttd.is_ready() == true and sntpd.is_ready() == true then
-
-		report_tmr:stop()
-		report_tmr:unregister()
 
 		local sec, _, _ = rtctime.get()
 
@@ -116,25 +75,36 @@ function report_boot()
 
 		print("\n\tMQTT Payload: "..payload.." Heap: "..node.heap())
 
+	else
+		--
 	end
 end
 
---node.egc.setmode(node.egc.ALWAYS, 4096)
+function done()
 
-wireless.start(config.WIFI)
+	-- clean up the heap
+	fsm = nil
+	subscriptions = nil
+	config.free()
+	collectgarbage()
+
+	--for k,v in pairs(package.loaded) do print(k,v) end
+
+	report_boot()
+	sample_tmr:start()
+end
 
 i2c.setup(0, config.I2C.sda, config.I2C.scl, config.I2C.speed)
 am2320.setup()
 
 rf.start(config.RF)
 
-system_tmr = tmr.create()
-system_tmr:register(1000, tmr.ALARM_AUTO, function (t) wait_on_ip() end)
-system_tmr:start()
+fsm = {}
+fsm[3] = { fnc=wireless.start, arg={ config.WIFI }, assert=wireless.is_ready, run=1}
+fsm[2] = { fnc=sntpd.start, arg={ config.SNTP }, assert=sntpd.is_ready, run=1}
+fsm[1] = { fnc=mqttd.start, arg={ config.MQTT, subscriptions, mqtt_handler }, assert=mqttd.is_ready, run=1}
 
-report_tmr = tmr.create()
-report_tmr:register(1000, tmr.ALARM_AUTO, function (t) report_boot() end)
-report_tmr:start()
+initd.start(fsm, done)
 
 sample_tmr = tmr.create()
 sample_tmr:register(60 * 1000, tmr.ALARM_AUTO, function (t) sample() end)
