@@ -7,6 +7,7 @@ local sntpd = require("sntpd")
 local mqttd = require("mqttd")
 local rf = require("rf")
 
+-- switch ack and qos definitions
 local switches = {}
 switches["home/lamps/switch1/set"] = {["ack"]="home/lamps/switch1", ["qos"]=0}
 switches["home/lamps/switch2/set"] = {["ack"]="home/lamps/switch2", ["qos"]=0}
