@@ -31,7 +31,7 @@ module.I2C.speed = i2c.SLOW -- 100 kHz
 
 -- RF (Telldus and Nexa 433.92 MHz)
 module.RF = {}
-module.RF.tx_pin = 8 	-- GPIO8
+module.RF.tx_pin = 7 	-- GPIO13
 module.RF.repeats = 5	-- Number of times to repeat TX message
 module.RF.addr = {}		-- Remote addresses are stored in a table of arrays (one element per bit)
 module.RF.addr[1] = {1,1,0,0,0,0,0,1,0,1,1,1,0,0,1,1,0,0,1,0,1,1,0,1,0,1}
